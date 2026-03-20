@@ -1,8 +1,8 @@
 """Google Ads SDK client for MCP server."""
 
-from typing import Optional, Dict, Any
+import os
+from typing import Optional
 
-import yaml
 from google.ads.googleads.client import GoogleAdsClient
 
 from src.utils import get_logger
@@ -11,46 +11,28 @@ logger = get_logger(__name__)
 
 
 class GoogleAdsSdkClient:
-    """SDK client for Google Ads with service account authentication."""
+    """SDK client for Google Ads with OAuth2 authentication."""
 
-    def __init__(self, config_path: str = "./env/google-ads.yaml"):
-        """Initialize the SDK client with configuration."""
-        self.config_path = config_path
+    def __init__(self):
+        """Initialize the SDK client from environment variables."""
         self._client: Optional[GoogleAdsClient] = None
-
-    def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from YAML file."""
-        with open(self.config_path, "r") as f:
-            config = yaml.safe_load(f)
-
-        # Ensure required fields are present
-        required_fields = ["developer_token", "json_key_file_path"]
-        for field in required_fields:
-            if field not in config:
-                raise ValueError(f"Missing required field in config: {field}")
-
-        return config
 
     @property
     def client(self) -> GoogleAdsClient:
         """Get or create the Google Ads client."""
         if self._client is None:
-            config = self._load_config()
-
-            # Build configuration dictionary for GoogleAdsClient
             client_config = {
-                "developer_token": config["developer_token"],
-                "use_proto_plus": True,  # Use proto-plus for better type hints
-                "json_key_file_path": config["json_key_file_path"],
+                "developer_token": os.environ["GOOGLE_ADS_DEVELOPER_TOKEN"],
+                "client_id": os.environ["GOOGLE_ADS_CLIENT_ID"],
+                "client_secret": os.environ["GOOGLE_ADS_CLIENT_SECRET"],
+                "refresh_token": os.environ["GOOGLE_ADS_REFRESH_TOKEN"],
+                "use_proto_plus": True,
             }
 
-            # Add optional fields if present
-            if "login_customer_id" in config:
-                # Remove hyphens from customer ID
-                login_customer_id = str(config["login_customer_id"]).replace("-", "")
-                client_config["login_customer_id"] = login_customer_id
+            login_customer_id = os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID")
+            if login_customer_id:
+                client_config["login_customer_id"] = login_customer_id.replace("-", "")
 
-            # Create client from dictionary
             self._client = GoogleAdsClient.load_from_dict(client_config)
             logger.info("Google Ads SDK client initialized successfully")
 
