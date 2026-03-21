@@ -206,6 +206,28 @@ Examples:
         help="Comma-separated list of server groups to mount (default: core)",
     )
 
+    parser.add_argument(
+        "--transport",
+        type=str,
+        default="stdio",
+        choices=["stdio", "sse", "streamable-http"],
+        help="Transport type: stdio (default), sse, or streamable-http",
+    )
+
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="0.0.0.0",
+        help="Host to bind when using HTTP transport (default: 0.0.0.0)",
+    )
+
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=3100,
+        help="Port to listen on when using HTTP transport (default: 3100)",
+    )
+
     return parser.parse_args()
 
 
@@ -463,7 +485,11 @@ async def run_with_shutdown():
         f"Registered tools: {len(tools)} tools from {len(servers_to_mount)} servers"
     )
     # Create a task for the server
-    server_task = asyncio.create_task(mcp.run_async(transport="stdio"))
+    transport = args.transport
+    transport_kwargs: dict[str, Any] = {}
+    if transport in ("sse", "streamable-http"):
+        transport_kwargs = {"host": args.host, "port": args.port}
+    server_task = asyncio.create_task(mcp.run_async(transport=transport, **transport_kwargs))
 
     # Wait for either the server to complete or shutdown signal
     shutdown_task = asyncio.create_task(shutdown_event.wait())
