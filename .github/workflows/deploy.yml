@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy with auto-rollback
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           port: ${{ secrets.VPS_PORT }}
@@ -23,36 +23,26 @@ jobs:
             CURRENT_MSG=$(git log -1 --pretty=format:"%s")
             DEPLOY_TIME=$(date '+%Y-%m-%d %H:%M:%S UTC')
 
-            echo "▶ بدء التحديث — النسخة الحالية: $CURRENT_COMMIT"
+            echo "Starting update — current: $CURRENT_COMMIT"
 
             git pull origin main
             NEW_COMMIT=$(git rev-parse HEAD)
             NEW_MSG=$(git log -1 --pretty=format:"%s")
 
             if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
-              echo "✅ لا يوجد تحديث جديد"
+              echo "No new update"
               exit 0
             fi
 
-            echo "  النسخة الجديدة: $NEW_COMMIT"
-
+            echo "New version: $NEW_COMMIT"
             /root/.local/bin/uv sync 2>&1
 
             TEST_PORT=3199
-            /root/.local/bin/uv run main.py \
-              --groups core \
-              --transport streamable-http \
-              --host 0.0.0.0 \
-              --port $TEST_PORT > /tmp/mcp_test.log 2>&1 &
+            /root/.local/bin/uv run main.py --groups core --transport streamable-http --host 0.0.0.0 --port $TEST_PORT > /tmp/mcp_test.log 2>&1 &
             TEST_PID=$!
             sleep 8
 
-            HTTP_CODE=$(curl -s -o /tmp/mcp_resp.txt -w "%{http_code}" \
-              -X POST http://127.0.0.1:$TEST_PORT/mcp/ \
-              -H "Content-Type: application/json" \
-              -H "Accept: application/json, text/event-stream" \
-              -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"healthcheck","version":"1"}}}' \
-              --max-time 8 2>/dev/null || echo "000")
+            HTTP_CODE=$(curl -s -o /tmp/mcp_resp.txt -w "%{http_code}" -X POST http://127.0.0.1:$TEST_PORT/mcp/ -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"healthcheck","version":"1"}}}' --max-time 8 2>/dev/null || echo "000")
 
             kill $TEST_PID 2>/dev/null
             wait $TEST_PID 2>/dev/null
@@ -60,58 +50,16 @@ jobs:
             if [ "$HTTP_CODE" = "200" ]; then
               systemctl restart google-ads-mcp
               rm -f /opt/google-ads-mcp/PENDING_UPDATE.md
-              echo "✅ تم التحديث بنجاح — commit: $NEW_COMMIT"
+              echo "Update successful — commit: $NEW_COMMIT"
             else
-              ERROR_LOG=$(tail -30 /tmp/mcp_test.log 2>/dev/null || echo "no logs")
-
               git reset --hard "$CURRENT_COMMIT"
               /root/.local/bin/uv sync 2>&1
 
-              python3 - <<PYEOF
-import datetime
+              python3 scripts/create_pending_update.py \
+                "$CURRENT_COMMIT" "$CURRENT_MSG" \
+                "$NEW_COMMIT" "$NEW_MSG" \
+                "$DEPLOY_TIME" "$HTTP_CODE"
 
-content = """# تحديث معلق
-
-> التحديث التلقائي فشل — السيرفر يعمل على النسخة السابقة بشكل طبيعي.
-
-## معلومات المحاولة
-
-| | |
-|---|---|
-| **التاريخ** | $DEPLOY_TIME |
-| **Commit المحاول** | \`$NEW_COMMIT\` |
-| **رسالة الـ Commit** | $NEW_MSG |
-| **HTTP Response** | $HTTP_CODE |
-
-## النسخة الحالية (الشغّالة)
-
-| | |
-|---|---|
-| **Commit** | \`$CURRENT_COMMIT\` |
-| **رسالة الـ Commit** | $CURRENT_MSG |
-
-## سجل الخطأ
-
-\`\`\`
-$ERROR_LOG
-\`\`\`
-
-## تطبيق التحديث يدوياً
-
-\`\`\`bash
-ssh root@94.176.182.121 -p 41194
-cd /opt/google-ads-mcp
-git pull origin main
-uv sync
-systemctl restart google-ads-mcp
-\`\`\`
-"""
-
-with open("/opt/google-ads-mcp/PENDING_UPDATE.md", "w") as f:
-    f.write(content)
-print("PENDING_UPDATE.md created")
-PYEOF
-
-              echo "❌ فشل التحديث — تم التراجع للنسخة: $CURRENT_COMMIT"
+              echo "Update failed — rolled back to: $CURRENT_COMMIT"
               exit 1
             fi
