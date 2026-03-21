@@ -529,8 +529,8 @@ def test_register_ad_group_bid_modifier_tools() -> None:
 
     expected_tools = [
         "create_ad_group_device_bid_modifier",
-        "create_ad_group_hotel_check_in_day_bid_modifier",
-        "create_ad_group_hotel_date_selection_bid_modifier",
+        "create_hotel_check_in_day_modifier",
+        "create_hotel_date_selection_modifier",
         "update_ad_group_bid_modifier",
         "list_ad_group_bid_modifiers",
         "remove_ad_group_bid_modifier",
