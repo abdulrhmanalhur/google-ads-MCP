@@ -199,3 +199,4 @@ cython_debug/
 # Claude Code
 .claude
 CLAUDE.local.md
+PENDING_UPDATE.md

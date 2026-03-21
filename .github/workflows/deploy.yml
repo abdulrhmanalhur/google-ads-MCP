@@ -1,0 +1,143 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy with auto-rollback
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: false
+          script: |
+            set -e
+            cd /opt/google-ads-mcp
+
+            # ── حفظ الحالة الحالية ──────────────────────────
+            CURRENT_COMMIT=$(git rev-parse HEAD)
+            CURRENT_MSG=$(git log -1 --pretty=format:"%s")
+            DEPLOY_TIME=$(date '+%Y-%m-%d %H:%M:%S UTC')
+
+            echo "▶ بدء التحديث..."
+            echo "  النسخة الحالية: $CURRENT_COMMIT"
+
+            # ── سحب التحديثات ───────────────────────────────
+            git pull origin main
+            NEW_COMMIT=$(git rev-parse HEAD)
+            NEW_MSG=$(git log -1 --pretty=format:"%s")
+
+            if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
+              echo "✅ لا يوجد تحديث جديد"
+              exit 0
+            fi
+
+            echo "  النسخة الجديدة: $NEW_COMMIT"
+
+            # ── تحديث التبعيات ──────────────────────────────
+            /root/.local/bin/uv sync 2>&1
+
+            # ── اختبار التشغيل على port مؤقت ───────────────
+            TEST_PORT=3199
+            /root/.local/bin/uv run main.py \
+              --groups core \
+              --transport streamable-http \
+              --host 0.0.0.0 \
+              --port $TEST_PORT \
+              > /tmp/mcp_test.log 2>&1 &
+            TEST_PID=$!
+
+            sleep 8
+
+            HTTP_CODE=$(curl -s -o /tmp/mcp_response.txt -w "%{http_code}" \
+              -X POST http://127.0.0.1:$TEST_PORT/mcp/ \
+              -H "Content-Type: application/json" \
+              -H "Accept: application/json, text/event-stream" \
+              -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"healthcheck","version":"1"}}}' \
+              --max-time 8 2>/dev/null || echo "000")
+
+            kill $TEST_PID 2>/dev/null
+            wait $TEST_PID 2>/dev/null
+
+            # ── تقييم النتيجة ────────────────────────────────
+            if [ "$HTTP_CODE" = "200" ]; then
+
+              # ✅ نجح — أعد تشغيل الخدمة الفعلية
+              systemctl restart google-ads-mcp
+              sleep 3
+              STATUS=$(systemctl is-active google-ads-mcp)
+
+              # احذف ملف التحديث المعلق إن وُجد
+              rm -f /opt/google-ads-mcp/PENDING_UPDATE.md
+
+              echo "✅ تم التحديث بنجاح"
+              echo "  الـ commit: $NEW_COMMIT"
+              echo "  حالة الخدمة: $STATUS"
+
+            else
+
+              # ❌ فشل — تراجع للنسخة السابقة
+              ERROR_LOG=$(cat /tmp/mcp_test.log 2>/dev/null | tail -30)
+              RESPONSE=$(cat /tmp/mcp_response.txt 2>/dev/null | head -5)
+
+              git reset --hard "$CURRENT_COMMIT"
+              /root/.local/bin/uv sync 2>&1
+              systemctl restart google-ads-mcp
+
+              # ── إنشاء ملف التحديث المعلق ─────────────────
+              cat > /opt/google-ads-mcp/PENDING_UPDATE.md << MDEOF
+# ⏳ تحديث معلق
+
+> آخر تحديث تعذّر تطبيقه تلقائياً — السيرفر يعمل على النسخة السابقة بشكل طبيعي.
+
+## معلومات المحاولة
+
+| | |
+|---|---|
+| **التاريخ** | $DEPLOY_TIME |
+| **الـ Commit المحاول** | \`$NEW_COMMIT\` |
+| **رسالة الـ Commit** | $NEW_MSG |
+| **HTTP Response** | $HTTP_CODE |
+
+## النسخة الحالية (الشغّالة)
+
+| | |
+|---|---|
+| **الـ Commit** | \`$CURRENT_COMMIT\` |
+| **رسالة الـ Commit** | $CURRENT_MSG |
+
+## سجل الخطأ
+
+\`\`\`
+$ERROR_LOG
+\`\`\`
+
+## تطبيق التحديث يدوياً (بعد إصلاح المشكلة)
+
+\`\`\`bash
+ssh root@94.176.182.121 -p 41194
+cd /opt/google-ads-mcp
+git pull origin main
+uv sync
+systemctl restart google-ads-mcp
+\`\`\`
+
+## إلغاء التحديث والبقاء على الحالي
+
+\`\`\`bash
+# احذف هذا الملف بعد الانتهاء
+rm /opt/google-ads-mcp/PENDING_UPDATE.md
+\`\`\`
+MDEOF
+
+              echo "❌ فشل التحديث — تم التراجع للنسخة: $CURRENT_COMMIT"
+              echo "  تم إنشاء: /opt/google-ads-mcp/PENDING_UPDATE.md"
+              exit 1
+
+            fi
