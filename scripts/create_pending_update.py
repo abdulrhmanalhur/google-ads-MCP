@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Create PENDING_UPDATE.md when auto-deploy fails."""
+
 import os
 import sys
 
