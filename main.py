@@ -489,7 +489,9 @@ async def run_with_shutdown():
     transport_kwargs: dict[str, Any] = {}
     if transport in ("sse", "streamable-http"):
         transport_kwargs = {"host": args.host, "port": args.port}
-    server_task = asyncio.create_task(mcp.run_async(transport=transport, **transport_kwargs))
+    server_task = asyncio.create_task(
+        mcp.run_async(transport=transport, **transport_kwargs)
+    )
 
     # Wait for either the server to complete or shutdown signal
     shutdown_task = asyncio.create_task(shutdown_event.wait())
