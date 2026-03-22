@@ -398,7 +398,7 @@ def create_bidding_seasonality_adjustment_tools(
     """
     tools = []
 
-    async def create_bidding_seasonality_adjustment(
+    async def create_seasonality_adj(
         ctx: Context,
         customer_id: str,
         name: str,
@@ -445,7 +445,7 @@ def create_bidding_seasonality_adjustment_tools(
             description=description,
         )
 
-    async def update_bidding_seasonality_adjustment(
+    async def update_seasonality_adj(
         ctx: Context,
         customer_id: str,
         adjustment_resource_name: str,
@@ -480,7 +480,7 @@ def create_bidding_seasonality_adjustment_tools(
             description=description,
         )
 
-    async def list_bidding_seasonality_adjustments(
+    async def list_seasonality_adjs(
         ctx: Context,
         customer_id: str,
         scope_filter: Optional[str] = None,
@@ -500,7 +500,7 @@ def create_bidding_seasonality_adjustment_tools(
             scope_filter=scope_filter,
         )
 
-    async def remove_bidding_seasonality_adjustment(
+    async def remove_seasonality_adj(
         ctx: Context,
         customer_id: str,
         adjustment_resource_name: str,
@@ -522,10 +522,10 @@ def create_bidding_seasonality_adjustment_tools(
 
     tools.extend(
         [
-            create_bidding_seasonality_adjustment,
-            update_bidding_seasonality_adjustment,
-            list_bidding_seasonality_adjustments,
-            remove_bidding_seasonality_adjustment,
+            create_seasonality_adj,
+            update_seasonality_adj,
+            list_seasonality_adjs,
+            remove_seasonality_adj,
         ]
     )
     return tools

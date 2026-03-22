@@ -243,7 +243,7 @@ def create_customer_user_access_invitation_tools(
     """
     tools = []
 
-    async def create_customer_user_access_invitation(
+    async def create_user_access_invitation(
         ctx: Context,
         customer_id: str,
         email_address: str,
@@ -266,7 +266,7 @@ def create_customer_user_access_invitation_tools(
             access_role=access_role,
         )
 
-    async def list_customer_user_access_invitations(
+    async def list_user_access_invitations(
         ctx: Context,
         customer_id: str,
         status_filter: Optional[str] = None,
@@ -286,7 +286,7 @@ def create_customer_user_access_invitation_tools(
             status_filter=status_filter,
         )
 
-    async def remove_customer_user_access_invitation(
+    async def remove_user_access_invitation(
         ctx: Context,
         customer_id: str,
         invitation_resource_name: str,
@@ -308,9 +308,9 @@ def create_customer_user_access_invitation_tools(
 
     tools.extend(
         [
-            create_customer_user_access_invitation,
-            list_customer_user_access_invitations,
-            remove_customer_user_access_invitation,
+            create_user_access_invitation,
+            list_user_access_invitations,
+            remove_user_access_invitation,
         ]
     )
     return tools

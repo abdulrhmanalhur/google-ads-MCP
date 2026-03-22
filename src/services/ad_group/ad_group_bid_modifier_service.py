@@ -519,7 +519,7 @@ def create_ad_group_bid_modifier_tools(
             bid_modifier=bid_modifier,
         )
 
-    async def create_ad_group_hotel_check_in_day_bid_modifier(
+    async def create_hotel_checkin_day_bid_mod(
         ctx: Context,
         customer_id: str,
         ad_group_id: str,
@@ -545,7 +545,7 @@ def create_ad_group_bid_modifier_tools(
             bid_modifier=bid_modifier,
         )
 
-    async def create_ad_group_hotel_date_selection_bid_modifier(
+    async def create_hotel_date_sel_bid_mod(
         ctx: Context,
         customer_id: str,
         ad_group_id: str,
@@ -640,8 +640,8 @@ def create_ad_group_bid_modifier_tools(
     tools.extend(
         [
             create_ad_group_device_bid_modifier,
-            create_ad_group_hotel_check_in_day_bid_modifier,
-            create_ad_group_hotel_date_selection_bid_modifier,
+            create_hotel_checkin_day_bid_mod,
+            create_hotel_date_sel_bid_mod,
             update_ad_group_bid_modifier,
             list_ad_group_bid_modifiers,
             remove_ad_group_bid_modifier,

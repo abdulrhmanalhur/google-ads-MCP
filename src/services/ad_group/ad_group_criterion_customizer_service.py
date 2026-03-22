@@ -154,7 +154,7 @@ def create_ad_group_criterion_customizer_tools(
     """
     tools = []
 
-    async def mutate_ad_group_criterion_customizers(
+    async def mutate_criterion_customizers(
         ctx: Context,
         customer_id: str,
         operations: List[Dict[str, Any]],
@@ -185,7 +185,7 @@ def create_ad_group_criterion_customizer_tools(
             response_content_type=response_content_type,
         )
 
-    tools.extend([mutate_ad_group_criterion_customizers])
+    tools.extend([mutate_criterion_customizers])
     return tools
 
 
